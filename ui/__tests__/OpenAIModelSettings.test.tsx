@@ -63,7 +63,9 @@ describe('OpenAIModelSettings', () => {
   it('keeps defaults editable while globally disabled', () => {
     const view = render(<OpenAIModelSettings />);
     expect(button(view, 'Web tools').disabled).toBe(false);
-    expect(view.querySelector('select[aria-label="Verbosity"]')).not.toBeNull();
+    const verbosity = view.querySelector('button[role="combobox"][aria-label="Verbosity"]');
+    expect(verbosity).not.toBeNull();
+    expect((verbosity as HTMLButtonElement).disabled).toBe(false);
     expect(view.textContent).toContain('Use priority processing for API-key and OAuth requests.');
   });
   it('offers to reset malformed saved state', () => {

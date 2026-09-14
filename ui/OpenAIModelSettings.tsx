@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
-import { Button, NativeSelect, NativeSelectOption, Switch } from '@sero-ai/ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch } from '@sero-ai/ui';
 import { createDefaultConfig, type EnhancementSettings, type OpenAIModelEnhancementConfig, type Verbosity } from '../shared/config';
 import { parseConfig, setDefault, setEnabled } from '../shared/state';
 import './styles.css';
@@ -66,9 +66,14 @@ export function OpenAIModelSettings() {
               ))}
               {section === 'Response' && (
                 <SettingRow name="Verbosity" description="Set response detail, or Off to omit the plugin value.">
-                  <NativeSelect className="min-w-24 text-xs" size="sm" aria-label="Verbosity" value={current.defaults.verbosity} onChange={(event) => change('verbosity', event.target.value as Verbosity)}>
-                    {(['off', 'low', 'medium', 'high'] as const).map((value) => <NativeSelectOption key={value}>{value}</NativeSelectOption>)}
-                  </NativeSelect>
+                  <Select value={current.defaults.verbosity} onValueChange={(value) => change('verbosity', value as Verbosity)}>
+                    <SelectTrigger size="sm" aria-label="Verbosity" className="min-w-24 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(['off', 'low', 'medium', 'high'] as const).map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </SettingRow>
               )}
             </div>

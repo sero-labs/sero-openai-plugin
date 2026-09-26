@@ -101,7 +101,7 @@
     "@earendil-works/pi-agent-core": "0.84.2",
     "@earendil-works/pi-ai": "0.84.2",
     "@earendil-works/pi-coding-agent": "0.84.2",
-    "@module-federation/vite": "1.19.1",
+    "@module-federation/vite": "1.21.6",
     "@sero-ai/app-runtime": "^0.5.0",
     "@sero-ai/plugin-vite": "^0.1.0",
     "@sero-ai/ui": "^0.5.0",

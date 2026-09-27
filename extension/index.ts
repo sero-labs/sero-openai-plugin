@@ -8,7 +8,6 @@ import { closeOwnedSockets } from './provider/continuation';
 
 export default function openAIExtender(pi: ExtensionAPI): void {
   let config: OpenAIModelEnhancementConfig | undefined;
-  const ownedSessionIds = new Set<string>();
   const reload = async (): Promise<void> => { config = await readConfig(resolveStatePath()); };
   const active = (model: Parameters<typeof resolveActive>[1]) => !config ? undefined : resolveActive(config, model);
   const reconcile = (model: Parameters<typeof resolveActive>[1]) => pi.setActiveTools(reconcileTools(pi.getActiveTools(), desiredTools(active(model))));
@@ -17,7 +16,6 @@ export default function openAIExtender(pi: ExtensionAPI): void {
   const unregisterProvider = registerCodexProvider(
     pi,
     async (model) => resolveActive(await readConfig(resolveStatePath()), model)?.settings,
-    (sessionId) => ownedSessionIds.add(sessionId),
   );
   pi.on('session_start', async (_event, ctx) => {
     try { await reload(); reconcile(ctx.model); }
@@ -34,10 +32,12 @@ export default function openAIExtender(pi: ExtensionAPI): void {
     if (nextPrompt !== event.systemPrompt) return { systemPrompt: nextPrompt };
   });
   pi.on('before_provider_request', (event, ctx) => ctx.model?.provider === 'openai' ? rewriteProviderPayload(event.payload, active(ctx.model)) : event.payload);
-  pi.on('session_shutdown', () => {
+  // Every session in the app shares one model runtime, so the provider serves all of
+  // them, subagents included. Close only this session's sockets, and remove the
+  // provider only when a reload replaces this extension copy.
+  pi.on('session_shutdown', (event, ctx) => {
     config = undefined;
-    for (const sessionId of ownedSessionIds) closeOwnedSockets(sessionId);
-    ownedSessionIds.clear();
-    unregisterProvider();
+    closeOwnedSockets(ctx.sessionManager.getSessionId());
+    if (event.reason === 'reload') unregisterProvider();
   });
 }

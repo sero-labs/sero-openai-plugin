@@ -19,7 +19,7 @@ function harness(model = supported) {
     registerProvider: vi.fn(), unregisterProvider: vi.fn(),
   };
   openAIExtender(pi as never);
-  const ctx = { model, modelRegistry: { isUsingOAuth: () => model.provider === 'openai-codex' }, ui: { notify: vi.fn() } };
+  const ctx = { model, modelRegistry: { isUsingOAuth: () => model.provider === 'openai-codex' }, ui: { notify: vi.fn() }, sessionManager: { getSessionId: () => 'owned-session' } };
   return { handlers, pi, ctx, active: () => active };
 }
 
@@ -36,7 +36,7 @@ describe('extension lifecycle', () => {
     await handlers.get('model_select')!({ model: supported }, ctx as never);
     expect(active()).toEqual(['read', 'other_tool']);
   });
-  it('closes only sockets owned by the shutting-down extension instance', async () => {
+  it('closes only the shutting-down session\'s sockets and keeps the shared provider', async () => {
     const closed = { owned: false, foreign: false };
     const socket = (key: keyof typeof closed): SocketLike => ({ readyState: 1, send: () => undefined, close: () => { closed[key] = true; }, addEventListener: () => undefined, removeEventListener: () => undefined });
     const { handlers, ctx, pi } = harness(oauth);
@@ -48,11 +48,17 @@ describe('extension lifecycle', () => {
     storeConnection('owned-session', { socket: socket('owned'), routeKey: 'route', busy: false });
     storeConnection('foreign-session', { socket: socket('foreign'), routeKey: 'route', busy: false });
     await handlers.get('session_start')!({}, ctx as never);
-    handlers.get('session_shutdown')!();
+    handlers.get('session_shutdown')!({ reason: 'quit' }, ctx as never);
     expect(pi.setActiveTools).toHaveBeenCalled();
-    expect(pi.unregisterProvider).toHaveBeenCalledWith('openai-codex');
+    // Another live session, such as the chat that started this subagent, still streams through it.
+    expect(pi.unregisterProvider).not.toHaveBeenCalled();
     expect(closed).toEqual({ owned: true, foreign: false });
     closeOwnedSockets('foreign-session');
+  });
+  it('removes the provider when a reload replaces the extension copy', () => {
+    const { handlers, ctx, pi } = harness();
+    handlers.get('session_shutdown')!({ reason: 'reload' }, ctx as never);
+    expect(pi.unregisterProvider).toHaveBeenCalledWith('openai-codex');
   });
   it('registers the Codex override before session start without replacing provider metadata', () => {
     const { pi } = harness();

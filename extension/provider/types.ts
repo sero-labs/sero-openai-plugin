@@ -1,4 +1,4 @@
-import type { ResponseInput, ResponseStreamEvent } from 'openai/resources/responses/responses.js';
+import type { ResponseCreateParamsStreaming, ResponseInput, ResponseStreamEvent } from 'openai/resources/responses/responses.js';
 import type { Model, SimpleStreamOptions } from '@earendil-works/pi-ai';
 import type { EnhancementSettings } from '../../shared/config';
 
@@ -14,7 +14,7 @@ export interface PreparedRequest {
   body: CodexRequestBody; accountId: string; sessionId?: string; requestId: string;
   routeKey: string; headers: Headers; endpoint: string; requestedTier?: ServiceTier; routedModelId: string;
 }
-export type ServiceTier = 'auto' | 'priority' | 'default' | 'flex' | 'scale' | null;
+export type ServiceTier = ResponseCreateParamsStreaming['service_tier'];
 export type CodexModel = Model<'openai-codex-responses'>;
 export type CodexOptions = SimpleStreamOptions;
 export type SettingsLoader = (model: CodexModel) => Promise<Readonly<EnhancementSettings> | undefined>;

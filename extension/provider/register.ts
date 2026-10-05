@@ -1,5 +1,5 @@
 import { streamSimple as stockCodexStream } from '@earendil-works/pi-ai/api/openai-codex-responses';
-import { createAssistantMessageEventStream, type Api, type Context, type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
+import { createAssistantMessageEventStream, type Api, type Model, type SimpleStreamOptions, type TranscriptContext } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { findCompatibility } from '../../shared/compatibility';
 import { createCodexStream } from './stream';
@@ -12,7 +12,7 @@ export function registerCodexProvider(
 ): () => void {
   pi.registerProvider('openai-codex', {
     api: 'openai-codex-responses',
-    streamSimple(model: Model<Api>, context: Context, options?: SimpleStreamOptions) {
+    streamSimple(model: Model<Api>, context: TranscriptContext, options?: SimpleStreamOptions) {
       const compatible = findCompatibility(model.provider, model.api, model.id);
       if (!compatible || model.api !== 'openai-codex-responses') return stockCodexStream(model as unknown as CodexModel, context, options);
       if (options?.sessionId) trackSession(options.sessionId);

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Context, Model, SimpleStreamOptions, Usage } from '@earendil-works/pi-ai';
+import { normalizeContext, type Context, type Model, type SimpleStreamOptions, type Usage } from '@earendil-works/pi-ai';
 import { DEFAULT_SETTINGS } from '../../shared/config';
 import { buildFinalBody } from '../provider/request';
 import { prepareRouting } from '../provider/routing';
@@ -13,7 +13,7 @@ const model: Model<'openai-codex-responses'> = {
   input: ['text', 'image'], cost: { input: 1, output: 2, cacheRead: 0.5, cacheWrite: 1 }, contextWindow: 100_000, maxTokens: 10_000,
   compat: { supportsStrictMode: true, supportsAdditionalTools: true },
 };
-const context: Context = { systemPrompt: 'system', messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }, { type: 'image', data: 'aGVsbG8=', mimeType: 'image/png' }], timestamp: 1 }], tools: [{ name: 'lookup', description: 'Lookup', parameters: { type: 'object', properties: {}, additionalProperties: false }, constrainedSampling: { type: 'json_schema', strict: 'require' } }] };
+const context = normalizeContext({ systemPrompt: 'system', messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }, { type: 'image', data: 'aGVsbG8=', mimeType: 'image/png' }], timestamp: 1 }], tools: [{ name: 'lookup', description: 'Lookup', parameters: { type: 'object', properties: {}, additionalProperties: false }, constrainedSampling: { type: 'json_schema', strict: 'require' } }] });
 const token = (account = 'account-a') => `aaa.${Buffer.from(JSON.stringify({ 'https://api.openai.com/auth': { chatgpt_account_id: account } })).toString('base64url')}.bbb`;
 const settings = (fastMode: boolean, verbosity: 'off' | 'low' | 'medium' | 'high') => ({ ...DEFAULT_SETTINGS, fastMode, verbosity });
 afterEach(() => { closeOwnedSockets(); vi.unstubAllGlobals(); });
@@ -56,16 +56,16 @@ describe('Codex request and transport', () => {
       messages: [
         { role: 'user', content: 'use tools', timestamp: 1 },
         { role: 'assistant', api: model.api, provider: model.provider, model: model.id, content: [{ type: 'toolCall', id: 'call_1', name: 'base_tool', arguments: {} }], usage, stopReason: 'toolUse', timestamp: 2 },
-        { role: 'toolResult', toolCallId: 'call_1', toolName: 'base_tool', content: [{ type: 'text', text: 'done' }], addedToolNames: ['late_tool'], isError: false, timestamp: 3 },
+        { role: 'toolResult', toolCallId: 'call_1', toolName: 'base_tool', content: [{ type: 'text', text: 'done' }], isError: false, timestamp: 3 },
+        { role: 'system', content: '', toolsAdded: [{ name: 'late_tool', description: 'Late', parameters: { type: 'object', properties: {} } }], timestamp: 3 },
         { role: 'assistant', api: model.api, provider: model.provider, model: model.id, content: [{ type: 'thinking', thinking: 'summary', thinkingSignature: JSON.stringify({ type: 'reasoning', id: 'rs_1', encrypted_content: 'ciphertext', summary: [] }) }], usage, stopReason: 'stop', timestamp: 4 },
         { role: 'user', content: 'continue', timestamp: 5 },
       ],
       tools: [
         { name: 'base_tool', description: 'Base', parameters: { type: 'object', properties: {} } },
-        { name: 'late_tool', description: 'Late', parameters: { type: 'object', properties: {} } },
       ],
     };
-    const body = await buildFinalBody(model, history, undefined, settings(false, 'off'));
+    const body = await buildFinalBody({ ...model, compat: { ...model.compat, supportsMidConvoSystemMessages: true } }, normalizeContext(history), undefined, settings(false, 'off'));
     const toolNames = (body.tools ?? []).map((tool) => typeof tool === 'object' && tool !== null && 'name' in tool && typeof tool.name === 'string' ? tool.name : undefined);
     expect(toolNames).toEqual(['base_tool']);
     expect(body.input).toContainEqual(expect.objectContaining({ type: 'additional_tools', tools: [expect.objectContaining({ name: 'late_tool' })] }));
@@ -136,7 +136,7 @@ describe('Codex request and transport', () => {
   });
   it('sends only a valid continuation delta and rejects a changed request route', async () => {
     const socket = { readyState: 1, send: vi.fn(), close: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn() } satisfies SocketLike;
-    const baseline = await buildFinalBody(model, { messages: [{ role: 'user', content: 'one', timestamp: 1 }] }, undefined, settings(false, 'off'));
+    const baseline = await buildFinalBody(model, normalizeContext({ messages: [{ role: 'user', content: 'one', timestamp: 1 }] }), undefined, settings(false, 'off'));
     const responseItems = [{ role: 'assistant', content: [{ type: 'output_text', text: 'answer' }] }] as unknown as typeof baseline.input;
     const connection = { socket, routeKey: 'route', busy: true, continuation: { body: baseline, responseId: 'r1', responseItems } };
     const current = { ...baseline, input: [...baseline.input, ...connection.continuation.responseItems, { role: 'user', content: 'two' }] } as unknown as CodexRequestBody;
@@ -168,9 +168,9 @@ describe('Codex request and transport', () => {
       private emit(type: string, event: unknown) { for (const listener of this.listeners.get(type) ?? []) listener(event); }
     }
     vi.stubGlobal('WebSocket', CapturingSocket); const firstContext: Context = { messages: [{ role: 'user', content: 'one', timestamp: 1 }] };
-    const first = await createCodexStream(async () => settings(true, 'off'))(model, firstContext, { apiKey: token(), transport, sessionId: 'two-turn' }).result();
+    const first = await createCodexStream(async () => settings(true, 'off'))(model, normalizeContext(firstContext), { apiKey: token(), transport, sessionId: 'two-turn' }).result();
     const secondContext: Context = { messages: [...firstContext.messages, first, { role: 'user', content: 'two', timestamp: 2 }] };
-    const second = await createCodexStream(async () => settings(true, 'off'))(model, secondContext, { apiKey: token(), transport, sessionId: 'two-turn' }).result();
+    const second = await createCodexStream(async () => settings(true, 'off'))(model, normalizeContext(secondContext), { apiKey: token(), transport, sessionId: 'two-turn' }).result();
     expect(instances).toHaveLength(cached ? 1 : 2);
     expect(handshakes[0].url).toBe('wss://chatgpt.com/backend-api/codex/responses'); expect(handshakes[0].headers).toMatchObject({
       authorization: expect.stringMatching(/^Bearer /), 'chatgpt-account-id': 'account-a', 'openai-beta': 'responses_websockets=2026-02-06', originator: 'codex_cli_rs', 'x-codex-routing-hint': 'model=gpt-5.5;tier=priority',
@@ -180,7 +180,7 @@ describe('Codex request and transport', () => {
     expect(requests[1].input).toEqual(cached ? [expect.objectContaining({ role: 'user' })] : expect.arrayContaining([expect.objectContaining({ role: 'assistant' }), expect.objectContaining({ role: 'user' })]));
     if (cached) {
       const thirdContext: Context = { messages: [...secondContext.messages, second, { role: 'user', content: 'three', timestamp: 3 }] };
-      await createCodexStream(async () => settings(true, 'off'))(model, thirdContext, { apiKey: token('account-b'), transport, sessionId: 'two-turn' }).result();
+      await createCodexStream(async () => settings(true, 'off'))(model, normalizeContext(thirdContext), { apiKey: token('account-b'), transport, sessionId: 'two-turn' }).result();
       expect(instances).toHaveLength(2); expect(requests[2].previous_response_id).toBeUndefined();
     }
   });

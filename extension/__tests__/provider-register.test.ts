@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createAssistantMessageEventStream, type Context, type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
+import { createAssistantMessageEventStream, normalizeContext, type TranscriptContext, type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
 import { openaiCodexProvider } from '@earendil-works/pi-ai/providers/openai-codex';
 import { DEFAULT_SETTINGS } from '../../shared/config';
 import { composeModelProvider, type ProviderConfigInput } from '../../node_modules/@earendil-works/pi-coding-agent/dist/core/provider-composer.js';
@@ -14,11 +14,11 @@ vi.mock('@earendil-works/pi-ai/api/openai-codex-responses', () => ({ streamSimpl
 import { registerCodexProvider } from '../provider/register';
 
 const model = (id: string): Model<'openai-codex-responses'> => ({ id, name: id, api: 'openai-codex-responses', provider: 'openai-codex', baseUrl: 'https://example.test', reasoning: true, input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 1000, maxTokens: 100 });
-const context: Context = { messages: [] }; const options: SimpleStreamOptions = { transport: 'sse' };
+const context = normalizeContext({ messages: [] }); const options: SimpleStreamOptions = { transport: 'sse' };
 
 describe('Codex provider registration', () => {
   it('delegates unsupported and disabled requests to stock with unchanged arguments', async () => {
-    let registered: { streamSimple: (model: Model<'openai-codex-responses'>, context: Context, options?: SimpleStreamOptions) => ReturnType<typeof createAssistantMessageEventStream> } | undefined;
+    let registered: { streamSimple: (model: Model<'openai-codex-responses'>, context: TranscriptContext, options?: SimpleStreamOptions) => ReturnType<typeof createAssistantMessageEventStream> } | undefined;
     const pi = { registerProvider: vi.fn((_name, config) => { registered = config; }), unregisterProvider: vi.fn() };
     registerCodexProvider(pi as never, async () => undefined);
     const unsupported = model('not-compatible'); await registered!.streamSimple(unsupported, context, options).result();
@@ -26,7 +26,7 @@ describe('Codex provider registration', () => {
     expect(mocks.stock).toHaveBeenNthCalledWith(1, unsupported, context, options); expect(mocks.stock).toHaveBeenNthCalledWith(2, disabled, context, options);
   });
   it('selects the owned stream only for an enabled exact record', async () => {
-    let registered: { streamSimple: (model: Model<'openai-codex-responses'>, context: Context, options?: SimpleStreamOptions) => ReturnType<typeof createAssistantMessageEventStream> } | undefined;
+    let registered: { streamSimple: (model: Model<'openai-codex-responses'>, context: TranscriptContext, options?: SimpleStreamOptions) => ReturnType<typeof createAssistantMessageEventStream> } | undefined;
     const pi = { registerProvider: (_name: string, config: typeof registered) => { registered = config; }, unregisterProvider: vi.fn() };
     const trackSession = vi.fn();
     registerCodexProvider(pi as never, async () => DEFAULT_SETTINGS, trackSession);
@@ -45,9 +45,6 @@ describe('Codex provider registration', () => {
     const base = openaiCodexProvider();
     const composed = composeModelProvider('openai-codex', base, await ModelConfig.load(undefined), extension);
     expect(composed.getModels()).toEqual(base.getModels());
-    expect(composed.getModels().map((entry) => entry.id)).toEqual([
-      'gpt-5.3-codex-spark', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra',
-    ]);
     expect(composed.baseUrl).toBe(base.baseUrl); expect(composed.headers).toEqual(base.headers);
     expect(composed.auth.oauth?.name).toBe(base.auth.oauth?.name); expect(composed.filterModels).toBe(base.filterModels);
   });

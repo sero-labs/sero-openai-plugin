@@ -78,13 +78,14 @@ export async function* openWebSocket(prepared: PreparedRequest, options?: CodexO
   const failAfterDecode = (cause: Error) => { void decoding.finally(() => { if (!complete && !failure) failure = cause; notify(); }); };
   const error = () => failAfterDecode(new Error('WebSocket stream failed.'));
   const close = (event: unknown) => failAfterDecode(closeError(event));
-  const abort = () => { failure = new Error('Request was aborted'); notify(); };
+  const abort = () => { queue.length = 0; failure = new Error('Request was aborted'); notify(); };
   socket.addEventListener('message', message); socket.addEventListener('error', error); socket.addEventListener('close', close); options?.signal?.addEventListener('abort', abort, { once: true });
   const idleTimeout = normalizedTimeout(options?.timeoutMs);
   try {
     while (!complete || queue.length) {
-      if (failure) throw failure;
+      // Events that arrived before a close or an error are delivered first, so output the socket already sent is not lost.
       if (queue.length) { yield queue.shift()!; continue; }
+      if (failure) throw failure;
       await new Promise<void>((resolve, reject) => {
         wake = resolve;
         if (idleTimeout && idleTimeout > 0) {

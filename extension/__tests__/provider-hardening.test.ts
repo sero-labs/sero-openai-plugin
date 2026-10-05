@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { zstdDecompressSync } from 'node:zlib';
-import type { AssistantMessage, Context, Model } from '@earendil-works/pi-ai';
+import { normalizeContext, type AssistantMessage, type Context, type Model } from '@earendil-works/pi-ai';
 import { isContextOverflow } from '../../node_modules/@earendil-works/pi-ai/dist/utils/overflow.js';
 import { DEFAULT_SETTINGS } from '../../shared/config';
 import { normalizeEvents } from '../provider/events';
@@ -19,7 +19,8 @@ const model: Model<'openai-codex-responses'> = {
   compat: { supportsStrictMode: true, supportsOpenAIGrammarTools: true },
 };
 const token = (account = 'account') => `a.${Buffer.from(JSON.stringify({ 'https://api.openai.com/auth': { chatgpt_account_id: account } })).toString('base64url')}.b`;
-const context: Context = { messages: [{ role: 'user', content: 'hello', timestamp: 1 }] };
+const plainContext: Context = { messages: [{ role: 'user', content: 'hello', timestamp: 1 }] };
+const context = normalizeContext(plainContext);
 const settings = { ...DEFAULT_SETTINGS, fastMode: false, verbosity: 'off' as const };
 const completed = { type: 'response.completed', response: { id: 'r', status: 'completed', output: [], usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 } } };
 const sse = (event: object) => `data: ${JSON.stringify(event)}\n\n`;
@@ -32,11 +33,11 @@ afterEach(() => { closeOwnedSockets(); FakeSocket.payload = undefined; FakeSocke
 
 describe('request parity and isolation', () => {
   it('serializes grammar tools and maps reasoning off without a reasoning object', async () => {
-    const grammarContext: Context = { ...context, tools: [{
+    const grammarContext: Context = { ...plainContext, tools: [{
       name: 'query', description: 'query', parameters: { type: 'object', properties: { value: { type: 'string' } }, required: ['value'], additionalProperties: false },
       constrainedSampling: { type: 'grammar', variants: { openai_lark: 'start: /.+/' } },
     }] };
-    const body = await buildFinalBody({ ...model, reasoning: false }, grammarContext, { reasoning: 'high' }, settings);
+    const body = await buildFinalBody({ ...model, reasoning: false }, normalizeContext(grammarContext), { reasoning: 'high' }, settings);
     expect(body.reasoning).toBeUndefined();
     expect(body.tools).toEqual([expect.objectContaining({ type: 'custom', name: 'query', format: expect.objectContaining({ type: 'grammar', syntax: 'lark' }) })]);
   });

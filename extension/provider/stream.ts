@@ -1,4 +1,4 @@
-import { createAssistantMessageEventStream, type AssistantMessage, type AssistantMessageEventStream, type Context, type Usage } from '@earendil-works/pi-ai';
+import { createAssistantMessageEventStream, getDeclaredTools, normalizeContext, resolveTranscript, type AssistantMessage, type AssistantMessageEventStream, type TranscriptContext, type Usage } from '@earendil-works/pi-ai';
 import { convertResponsesMessages, processResponsesStream } from '@earendil-works/pi-ai/api/openai-responses-shared';
 import { createGrammarToolInputProperties } from '@earendil-works/pi-ai/api/constrained-sampling';
 import type { ResponseInput } from 'openai/resources/responses/responses.js';
@@ -30,19 +30,20 @@ async function processSocket(model: CodexModel, prepared: ReturnType<typeof prep
   try { await processResponsesStream(startedEvents(), output, stream, model, responseOptions(model, prepared, grammarToolInputProperties)); }
   catch (error) { if (connection) discardWebSocket(prepared, connection); throw error; }
   if (!connection) throw new Error('WebSocket connection was not established.');
-  const responseItems: ResponseInput = convertResponsesMessages(model, { messages: [output] }, TOOL_PROVIDERS, { includeSystemPrompt: false, grammarToolInputProperties }).filter((item) => item.type !== 'function_call_output' && item.type !== 'custom_tool_call_output');
+  const responseItems: ResponseInput = convertResponsesMessages(model, normalizeContext({ messages: [output] }), TOOL_PROVIDERS, { includeSystemPrompt: false, grammarToolInputProperties }).filter((item) => item.type !== 'function_call_output' && item.type !== 'custom_tool_call_output');
   finishWebSocket(prepared, connection, output.responseId, responseItems, options);
 }
 export function createCodexStream(loadSettings: SettingsLoader) {
-  return (model: CodexModel, context: Context, options?: CodexOptions): AssistantMessageEventStream => {
+  return (model: CodexModel, rawContext: TranscriptContext, options?: CodexOptions): AssistantMessageEventStream => {
     const stream = createAssistantMessageEventStream(); const output = outputFor(model);
+    const context = resolveTranscript(rawContext, model.compat?.supportsMidConvoSystemMessages);
     void (async () => {
       try {
         const settings = await loadSettings(model); if (!settings) throw new Error('Provider settings changed before dispatch.');
         if (options?.cacheRetention === 'none') closeOwnedSockets(options.sessionId);
         const sessionId = options?.cacheRetention === 'none' ? undefined : options?.sessionId;
         const body = await buildFinalBody(model, context, options, settings, sessionId); const prepared = prepareRouting(model, body, options);
-        const grammarToolInputProperties = createGrammarToolInputProperties(context.tools, model.compat?.supportsOpenAIGrammarTools ?? false); const state: DispatchState = { started: false };
+        const grammarToolInputProperties = createGrammarToolInputProperties(getDeclaredTools(context.messages), model.compat?.supportsOpenAIGrammarTools ?? false); const state: DispatchState = { started: false };
         let websocketStarted = false;
         if (options?.transport !== 'sse') {
           for (let attempt = 0; attempt < 2 && !websocketStarted; attempt += 1) {

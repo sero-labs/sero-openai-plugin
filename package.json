@@ -1,6 +1,6 @@
 {
   "name": "@sero-ai/plugin-openai-extender",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Optional OpenAI model enhancements for Sero",
   "type": "module",
   "packageManager": "npm@11.11.0",
@@ -53,16 +53,56 @@
             "extensionPoint": "ui.chat.model-extension",
             "component": "OpenAIChatShortcut",
             "models": [
-              { "provider": "openai", "api": "openai-responses", "modelId": "gpt-5.4" },
-              { "provider": "openai", "api": "openai-responses", "modelId": "gpt-5.3-codex" },
-              { "provider": "openai", "api": "openai-responses", "modelId": "gpt-4.1" },
-              { "provider": "openai-codex", "api": "openai-codex-responses", "modelId": "gpt-5.3-codex-spark" },
-              { "provider": "openai-codex", "api": "openai-codex-responses", "modelId": "gpt-5.4" },
-              { "provider": "openai-codex", "api": "openai-codex-responses", "modelId": "gpt-5.4-mini" },
-              { "provider": "openai-codex", "api": "openai-codex-responses", "modelId": "gpt-5.5" },
-              { "provider": "openai-codex", "api": "openai-codex-responses", "modelId": "gpt-5.6-luna" },
-              { "provider": "openai-codex", "api": "openai-codex-responses", "modelId": "gpt-5.6-sol" },
-              { "provider": "openai-codex", "api": "openai-codex-responses", "modelId": "gpt-5.6-terra" }
+              {
+                "provider": "openai",
+                "api": "openai-responses",
+                "modelId": "gpt-5.4"
+              },
+              {
+                "provider": "openai",
+                "api": "openai-responses",
+                "modelId": "gpt-5.3-codex"
+              },
+              {
+                "provider": "openai",
+                "api": "openai-responses",
+                "modelId": "gpt-4.1"
+              },
+              {
+                "provider": "openai-codex",
+                "api": "openai-codex-responses",
+                "modelId": "gpt-5.3-codex-spark"
+              },
+              {
+                "provider": "openai-codex",
+                "api": "openai-codex-responses",
+                "modelId": "gpt-5.4"
+              },
+              {
+                "provider": "openai-codex",
+                "api": "openai-codex-responses",
+                "modelId": "gpt-5.4-mini"
+              },
+              {
+                "provider": "openai-codex",
+                "api": "openai-codex-responses",
+                "modelId": "gpt-5.5"
+              },
+              {
+                "provider": "openai-codex",
+                "api": "openai-codex-responses",
+                "modelId": "gpt-5.6-luna"
+              },
+              {
+                "provider": "openai-codex",
+                "api": "openai-codex-responses",
+                "modelId": "gpt-5.6-sol"
+              },
+              {
+                "provider": "openai-codex",
+                "api": "openai-codex-responses",
+                "modelId": "gpt-5.6-terra"
+              }
             ]
           }
         ]
@@ -91,16 +131,16 @@
     "typebox": "^1.1.37"
   },
   "peerDependencies": {
-    "@earendil-works/pi-agent-core": ">=0.84.2",
-    "@earendil-works/pi-ai": ">=0.84.2",
-    "@earendil-works/pi-coding-agent": ">=0.84.2",
+    "@earendil-works/pi-agent-core": ">=1.0.2",
+    "@earendil-works/pi-ai": ">=1.0.2",
+    "@earendil-works/pi-coding-agent": ">=1.0.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
-    "@earendil-works/pi-agent-core": "0.84.2",
-    "@earendil-works/pi-ai": "0.84.2",
-    "@earendil-works/pi-coding-agent": "0.84.2",
+    "@earendil-works/pi-agent-core": "1.0.2",
+    "@earendil-works/pi-ai": "1.0.2",
+    "@earendil-works/pi-coding-agent": "1.0.2",
     "@module-federation/vite": "1.21.6",
     "@sero-ai/app-runtime": "^0.5.0",
     "@sero-ai/plugin-vite": "^0.1.0",
